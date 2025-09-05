@@ -1,0 +1,6 @@
+streamlit
+streamlit_authenticator
+pandas
+matplotlib
+sqlite3
+datetime
