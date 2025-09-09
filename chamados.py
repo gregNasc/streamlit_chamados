@@ -7,8 +7,7 @@ from io import BytesIO
 DB_PATH = "chamados.db"
 EXCEL_PATH = "chamado.xlsx"
 
-
-# Carregar dados do Excel
+# Carregar dados do Excel com cache adequado
 @st.cache_data
 def carregar_dados_excel():
     dados_excel = pd.read_excel(EXCEL_PATH, header=1)
@@ -18,9 +17,7 @@ def carregar_dados_excel():
     dados_excel["4"] = pd.to_datetime(dados_excel["4"], errors='coerce')
     return dados_excel
 
-
 dados = carregar_dados_excel()
-
 
 # Função para listar chamados
 def listar_chamados(filtro="Aberto", inicio=None, fim=None):
@@ -40,7 +37,6 @@ def listar_chamados(filtro="Aberto", inicio=None, fim=None):
         df = pd.read_sql_query(query, conn)
     return df
 
-
 # Função para cadastrar chamado
 def cadastrar_chamado(regional, loja, lider, motivo):
     abertura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -51,7 +47,6 @@ def cadastrar_chamado(regional, loja, lider, motivo):
         """, (regional, loja, lider, motivo, abertura, "Aberto"))
         conn.commit()
     st.success("Chamado cadastrado!")
-
 
 # Função para finalizar chamado
 def finalizar_chamado(chamado_id):
@@ -71,7 +66,6 @@ def finalizar_chamado(chamado_id):
         conn.commit()
     st.success(f"Chamado {chamado_id} finalizado!")
 
-
 # Função para exportar chamados para Excel
 def exportar_chamados_para_excel(df):
     output = BytesIO()
@@ -79,7 +73,6 @@ def exportar_chamados_para_excel(df):
         df.to_excel(writer, index=False, sheet_name='chamados')
     output.seek(0)
     return output.getvalue()
-
 
 # Função principal do sistema de chamados
 def sistema_chamados(usuario_logado):
@@ -99,8 +92,7 @@ def sistema_chamados(usuario_logado):
     lojas_disponiveis = []
     if regional not in ["Selecione uma Regional"]:
         lojas_disponiveis = dados[(dados["8"].str.strip() == regional) &
-                                  (dados["4"].dt.date.between(data_inicio, data_fim))][
-            "1"].str.strip().unique().tolist()
+                                  (dados["4"].dt.date.between(data_inicio, data_fim))]["1"].str.strip().unique().tolist()
     loja = st.selectbox("Loja", ["Selecione uma Loja"] + lojas_disponiveis)
 
     # Líder
@@ -122,8 +114,7 @@ def sistema_chamados(usuario_logado):
     # Botão cadastrar chamado
     if st.button("Cadastrar Chamado"):
         motivo_final = outro_motivo if motivo == "Outro" else motivo
-        if regional in ["Selecione uma Regional"] or loja in [
-            "Selecione uma Loja"] or lider_editado.strip() == "" or motivo_final.strip() == "" or motivo_final == "Selecione um Motivo":
+        if regional in ["Selecione uma Regional"] or loja in ["Selecione uma Loja"] or lider_editado.strip() == "" or motivo_final.strip() == "" or motivo_final == "Selecione um Motivo":
             st.warning("Todos os campos devem ser preenchidos!")
         else:
             cadastrar_chamado(regional, loja, lider_editado, motivo_final)
@@ -133,7 +124,6 @@ def sistema_chamados(usuario_logado):
     df_chamados = listar_chamados(filtro_status, data_inicio, data_fim)
 
     if not df_chamados.empty:
-        # Tabela com botão "Finalizar" em cada linha
         for index, row in df_chamados.iterrows():
             col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 2, 2, 2, 2, 1, 1])
             col1.write(row["id"])
@@ -147,14 +137,9 @@ def sistema_chamados(usuario_logado):
             if row["status"] == "Aberto":
                 if col7.button("Finalizar", key=f"finalizar_{row['id']}"):
                     finalizar_chamado(row["id"])
-                    st.experimental_rerun()  # Atualiza a tabela após finalizar
+                    st.rerun()  # Atualiza a tabela após finalizar
     else:
         st.info("Nenhum chamado encontrado.")
-
-    # Exportar Excel (opcional)
-    # if not df_chamados.empty:
-    #     excel_data = exportar_chamados_para_excel(df_chamados)
-    #     st.download_button("Exportar Chamados em Excel", data=excel_data, file_name="chamados.xlsx")
 
     # Botão sair
     if st.button("Sair"):

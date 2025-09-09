@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
-import os
 from datetime import datetime
+import streamlit as st
 
 DB_PATH = "chamados.db"
 
@@ -46,6 +46,7 @@ def ler_chamados():
         df = pd.read_sql_query("SELECT * FROM chamados", conn)
     return df
 
+
 # Cadastrar chamado
 def cadastrar_chamado(regional, loja, lider, motivo):
     abertura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -56,6 +57,7 @@ def cadastrar_chamado(regional, loja, lider, motivo):
             VALUES (?, ?, ?, ?, ?, ?)
         """, (regional, loja, lider, motivo, abertura, "Aberto"))
         conn.commit()
+
 
 # Finalizar chamado pelo ID
 def finalizar_chamado(chamado_id):
@@ -76,6 +78,7 @@ def finalizar_chamado(chamado_id):
         conn.commit()
     return True
 
+
 # Cadastrar usuário
 def cadastrar_usuario(usuario, senha, papel="user"):
     with sqlite3.connect(DB_PATH) as conn:
@@ -86,6 +89,7 @@ def cadastrar_usuario(usuario, senha, papel="user"):
         """, (usuario, senha, papel))
         conn.commit()
 
+
 # Verificar login
 def verificar_usuario(usuario, senha):
     with sqlite3.connect(DB_PATH) as conn:
@@ -94,11 +98,15 @@ def verificar_usuario(usuario, senha):
         row = cursor.fetchone()
     return row[0] if row else None
 
-# Zerar banco de dados
+
+# Zerar banco de dados com proteção
 def zerar_banco():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS chamados")
-    cursor.execute("DROP TABLE IF EXISTS usuarios")
-    conn.commit()
-    conn.close()
+    if st.button("Zerar Banco de Dados", key="zerar_db"):
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS chamados")
+        cursor.execute("DROP TABLE IF EXISTS usuarios")
+        conn.commit()
+        conn.close()
+        st.success("✅ Banco de dados zerado com sucesso!")
+
