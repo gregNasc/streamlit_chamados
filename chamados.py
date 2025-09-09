@@ -7,7 +7,8 @@ from io import BytesIO
 DB_PATH = "chamados.db"
 EXCEL_PATH = "chamado.xlsx"
 
-# Carregar dados do Excel apenas para preencher Regional, Loja, Líder e Data
+
+# Carregar dados do Excel
 @st.cache_data
 def carregar_dados_excel():
     dados_excel = pd.read_excel(EXCEL_PATH, header=1)
@@ -17,9 +18,11 @@ def carregar_dados_excel():
     dados_excel["4"] = pd.to_datetime(dados_excel["4"], errors='coerce')
     return dados_excel
 
+
 dados = carregar_dados_excel()
 
 
+# Função para listar chamados
 def listar_chamados(filtro="Aberto", inicio=None, fim=None):
     with sqlite3.connect(DB_PATH) as conn:
         query = "SELECT * FROM chamados"
@@ -29,18 +32,20 @@ def listar_chamados(filtro="Aberto", inicio=None, fim=None):
         elif filtro == "Chamados Finalizados":
             conditions.append("status='Finalizado'")
         if inicio and fim:
-            conditions.append(f"(DATE(abertura) BETWEEN '{inicio}' AND '{fim}')")
+            inicio_str = inicio.strftime("%Y-%m-%d")
+            fim_str = fim.strftime("%Y-%m-%d")
+            conditions.append(f"(DATE(abertura) BETWEEN '{inicio_str}' AND '{fim_str}')")
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         df = pd.read_sql_query(query, conn)
     return df
 
 
+# Função para cadastrar chamado
 def cadastrar_chamado(regional, loja, lider, motivo):
     abertura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
+        conn.execute("""
             INSERT INTO chamados (regional, loja, lider, motivo, abertura, status)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (regional, loja, lider, motivo, abertura, "Aberto"))
@@ -48,19 +53,17 @@ def cadastrar_chamado(regional, loja, lider, motivo):
     st.success("Chamado cadastrado!")
 
 
+# Função para finalizar chamado
 def finalizar_chamado(chamado_id):
     with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT abertura FROM chamados WHERE id = ?", (chamado_id,))
-        row = cursor.fetchone()
-        if row is None:
+        row = conn.execute("SELECT abertura FROM chamados WHERE id=?", (chamado_id,)).fetchone()
+        if not row:
             st.error("Chamado não encontrado!")
             return
         abertura = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
         fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         duracao = str(datetime.now() - abertura).split('.')[0]
-
-        cursor.execute("""
+        conn.execute("""
             UPDATE chamados
             SET fechamento=?, duracao=?, status=?
             WHERE id=?
@@ -69,6 +72,7 @@ def finalizar_chamado(chamado_id):
     st.success(f"Chamado {chamado_id} finalizado!")
 
 
+# Função para exportar chamados para Excel
 def exportar_chamados_para_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -77,10 +81,12 @@ def exportar_chamados_para_excel(df):
     return output.getvalue()
 
 
+# Função principal do sistema de chamados
 def sistema_chamados(usuario_logado):
     st.title(f"Sistema de Chamados - Usuário: {usuario_logado}")
     st.sidebar.header("Filtros")
 
+    # Filtros
     filtro_status = st.sidebar.selectbox("Filtrar Chamados", ["Chamados Abertos", "Chamados Finalizados"])
     data_inicio = st.sidebar.date_input("Data Início", value=datetime.today())
     data_fim = st.sidebar.date_input("Data Fim", value=datetime.today())
@@ -90,21 +96,22 @@ def sistema_chamados(usuario_logado):
     regional = st.selectbox("Regional", ["Selecione uma Regional"] + regionais_disponiveis)
 
     # Loja
+    lojas_disponiveis = []
     if regional not in ["Selecione uma Regional"]:
         lojas_disponiveis = dados[(dados["8"].str.strip() == regional) &
-                                  (dados["4"].dt.date.between(data_inicio, data_fim))]["1"].str.strip().unique().tolist()
-    else:
-        lojas_disponiveis = []
+                                  (dados["4"].dt.date.between(data_inicio, data_fim))][
+            "1"].str.strip().unique().tolist()
     loja = st.selectbox("Loja", ["Selecione uma Loja"] + lojas_disponiveis)
 
     # Líder
+    lider = ""
     if loja not in ["Selecione uma Loja"]:
-        lider = dados[(dados["8"].str.strip() == regional) &
-                      (dados["1"].str.strip() == loja) &
-                      (dados["4"].dt.date.between(data_inicio, data_fim))]["12"].iloc[0]
-    else:
-        lider = ""
-    st.text_input("Líder", value=lider)
+        filtro = dados[(dados["8"].str.strip() == regional) &
+                       (dados["1"].str.strip() == loja) &
+                       (dados["4"].dt.date.between(data_inicio, data_fim))]
+        if not filtro.empty:
+            lider = filtro["12"].iloc[0]
+    lider_editado = st.text_input("Líder", value=lider)
 
     # Motivo
     motivos = ["Selecione um Motivo", "Falha Impressão", "Impressora Queimada",
@@ -112,35 +119,44 @@ def sistema_chamados(usuario_logado):
     motivo = st.selectbox("Motivo do Suporte", motivos)
     outro_motivo = st.text_input("Digite o motivo do suporte:") if motivo == "Outro" else ""
 
-    # Botão cadastrar
+    # Botão cadastrar chamado
     if st.button("Cadastrar Chamado"):
         motivo_final = outro_motivo if motivo == "Outro" else motivo
-        if regional in ["Selecione uma Regional"] or loja in ["Selecione uma Loja"] or lider.strip() == "" or motivo_final.strip() == "" or motivo_final == "Selecione um Motivo":
+        if regional in ["Selecione uma Regional"] or loja in [
+            "Selecione uma Loja"] or lider_editado.strip() == "" or motivo_final.strip() == "" or motivo_final == "Selecione um Motivo":
             st.warning("Todos os campos devem ser preenchidos!")
         else:
-            cadastrar_chamado(regional, loja, lider, motivo_final)
+            cadastrar_chamado(regional, loja, lider_editado, motivo_final)
 
-    # Listar chamados filtrados
+    # Listar chamados
     st.subheader("Chamados")
     df_chamados = listar_chamados(filtro_status, data_inicio, data_fim)
-    st.dataframe(df_chamados, width='stretch')
 
-    # Exportar Excel
     if not df_chamados.empty:
-        excel_data = exportar_chamados_para_excel(df_chamados)
-        st.download_button("Exportar Chamados em Excel", data=excel_data, file_name="chamados.xlsx")
+        # Tabela com botão "Finalizar" em cada linha
+        for index, row in df_chamados.iterrows():
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 2, 2, 2, 2, 1, 1])
+            col1.write(row["id"])
+            col2.write(row["regional"])
+            col3.write(row["loja"])
+            col4.write(row["lider"])
+            col5.write(row["motivo"])
+            col6.write(row["status"])
 
-    # Finalizar chamado pelo ID
-    if "Aberto" in filtro_status:
-        st.subheader("Finalizar Chamado")
-        if not df_chamados.empty:
-            opcoes = df_chamados.apply(lambda row: f"ID {row['id']} - {row['motivo']} - {row['loja']}", axis=1)
-            selecionado = st.selectbox("Selecione o chamado para finalizar", options=opcoes)
-            if st.button("Finalizar Chamado Selecionado"):
-                chamado_id = int(selecionado.split(" ")[1])
-                finalizar_chamado(chamado_id)
+            # Botão de finalizar apenas se o chamado estiver aberto
+            if row["status"] == "Aberto":
+                if col7.button("Finalizar", key=f"finalizar_{row['id']}"):
+                    finalizar_chamado(row["id"])
+                    st.experimental_rerun()  # Atualiza a tabela após finalizar
+    else:
+        st.info("Nenhum chamado encontrado.")
+
+    # Exportar Excel (opcional)
+    # if not df_chamados.empty:
+    #     excel_data = exportar_chamados_para_excel(df_chamados)
+    #     st.download_button("Exportar Chamados em Excel", data=excel_data, file_name="chamados.xlsx")
 
     # Botão sair
     if st.button("Sair"):
-        st.session_state.clear()  # limpa a sessão
-        st.stop()  # interrompe o script e volta para a tela de login
+        st.session_state.clear()
+        st.stop()
