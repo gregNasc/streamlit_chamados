@@ -2,9 +2,9 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
 from io import BytesIO
-from chamados import listar_chamados
+from database import ler_chamados
 
-# Exportar para Excel
+# Exportar dados para Excel
 def exportar_chamados_para_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -12,7 +12,7 @@ def exportar_chamados_para_excel(df):
     output.seek(0)
     return output.getvalue()
 
-# Gráfico pizza
+# Funções de gráficos
 def plotar_pizza(df, coluna, titulo=None, figsize=(4,4)):
     fig, ax = plt.subplots(figsize=figsize)
     df[coluna].value_counts().plot(
@@ -24,7 +24,6 @@ def plotar_pizza(df, coluna, titulo=None, figsize=(4,4)):
     fig.tight_layout()
     return fig
 
-# Gráfico barra
 def plotar_barra(df, coluna, titulo=None, figsize=(5,4)):
     fig, ax = plt.subplots(figsize=figsize)
     df_count = df[coluna].value_counts()
@@ -38,7 +37,8 @@ def plotar_barra(df, coluna, titulo=None, figsize=(5,4)):
     fig.tight_layout()
     return fig
 
-# Aplicar filtros
+
+# Filtros genéricos
 def aplicar_filtros(df, colunas_filtro):
     df_filtrado = df.copy()
     for col in colunas_filtro:
@@ -50,12 +50,13 @@ def aplicar_filtros(df, colunas_filtro):
             df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
     return df_filtrado
 
+
 # Dashboard Admin
 def dashboard_admin():
     st.title("📊 Dashboard de Chamados - Admin")
-    df = listar_chamados(filtro="Todos")
+    df = ler_chamados()
     if df.empty:
-        st.warning("Nenhum chamado encontrado no banco de dados.")
+        st.warning("⚠️ Nenhum chamado encontrado no banco de dados.")
         return
 
     # Aplicar filtros
@@ -82,7 +83,7 @@ def dashboard_admin():
         st.subheader("👔 Principais Líderes")
         st.pyplot(plotar_barra(df_filtrado, "lider", titulo="Principais Líderes", figsize=(5,4)))
 
-    # Botão de exportação
+    # Exportar dados filtrados
     if not df_filtrado.empty:
         excel_data = exportar_chamados_para_excel(df_filtrado)
         st.download_button(
@@ -92,14 +93,16 @@ def dashboard_admin():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+
 # Dashboard Usuário
 def dashboard_usuario():
     st.title("📊 Status dos Chamados")
-    df = listar_chamados(filtro="Todos")
+    df = ler_chamados()
     if df.empty:
-        st.warning("Nenhum chamado encontrado no banco de dados.")
+        st.warning("⚠️ Nenhum chamado encontrado no banco de dados.")
         return
 
+    # Filtro apenas por status
     df_filtrado = aplicar_filtros(df, ["status"])
 
     st.subheader("📌 Status dos Chamados")

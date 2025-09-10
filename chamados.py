@@ -1,82 +1,73 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
 from datetime import datetime
 from io import BytesIO
+from database import cadastrar_chamado as db_cadastrar_chamado, finalizar_chamado as db_finalizar_chamado, ler_chamados
 
-DB_PATH = "chamados.db"
 EXCEL_PATH = "chamado.xlsx"
 
-# Carregar dados do Excel com cache adequado
+
+# Carregar dados do Excel
 @st.cache_data
 def carregar_dados_excel():
-    dados_excel = pd.read_excel(EXCEL_PATH, header=1)
-    dados_excel.columns = [str(c).strip().upper() for c in dados_excel.columns]
-    for col in ["8", "1", "12"]:
-        dados_excel[col] = dados_excel[col].astype(str)
-    dados_excel["4"] = pd.to_datetime(dados_excel["4"], errors='coerce')
-    return dados_excel
+    try:
+        dados_excel = pd.read_excel(EXCEL_PATH, header=1)
+        dados_excel.columns = [str(c).strip().upper() for c in dados_excel.columns]
+
+        # Converter colunas específicas
+        for col in ["8", "1", "12"]:
+            if col in dados_excel.columns:
+                dados_excel[col] = dados_excel[col].astype(str)
+        if "4" in dados_excel.columns:
+            dados_excel["4"] = pd.to_datetime(dados_excel["4"], errors="coerce")
+
+        return dados_excel
+    except FileNotFoundError:
+        st.warning(f"⚠️ Arquivo {EXCEL_PATH} não encontrado!")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erro ao carregar Excel: {e}")
+        return pd.DataFrame()
 
 dados = carregar_dados_excel()
 
-# Função para listar chamados
-def listar_chamados(filtro="Aberto", inicio=None, fim=None):
-    with sqlite3.connect(DB_PATH) as conn:
-        query = "SELECT * FROM chamados"
-        conditions = []
-        if filtro == "Chamados Abertos":
-            conditions.append("status='Aberto'")
-        elif filtro == "Chamados Finalizados":
-            conditions.append("status='Finalizado'")
-        if inicio and fim:
-            inicio_str = inicio.strftime("%Y-%m-%d")
-            fim_str = fim.strftime("%Y-%m-%d")
-            conditions.append(f"(DATE(abertura) BETWEEN '{inicio_str}' AND '{fim_str}')")
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-        df = pd.read_sql_query(query, conn)
+
+# Funções principais
+def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
+    """Lista chamados filtrando por status e datas."""
+    df = ler_chamados()
+    if df.empty:
+        return df
+
+    # Filtrar status
+    if filtro == "Chamados Abertos":
+        df = df[df["status"] == "Aberto"]
+    elif filtro == "Chamados Finalizados":
+        df = df[df["status"] == "Finalizado"]
+
+    # Filtrar por datas
+    if inicio and fim:
+        df["abertura"] = pd.to_datetime(df["abertura"], errors="coerce")
+        df = df[df["abertura"].dt.date.between(inicio, fim)]
+
     return df
 
-# Função para cadastrar chamado
-def cadastrar_chamado(regional, loja, lider, motivo):
-    abertura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO chamados (regional, loja, lider, motivo, abertura, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (regional, loja, lider, motivo, abertura, "Aberto"))
-        conn.commit()
-    st.success("Chamado cadastrado!")
-
-# Função para finalizar chamado
-def finalizar_chamado(chamado_id):
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute("SELECT abertura FROM chamados WHERE id=?", (chamado_id,)).fetchone()
-        if not row:
-            st.error("Chamado não encontrado!")
-            return
-        abertura = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
-        fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        duracao = str(datetime.now() - abertura).split('.')[0]
-        conn.execute("""
-            UPDATE chamados
-            SET fechamento=?, duracao=?, status=?
-            WHERE id=?
-        """, (fechamento, duracao, "Finalizado", chamado_id))
-        conn.commit()
-    st.success(f"Chamado {chamado_id} finalizado!")
-
-# Função para exportar chamados para Excel
 def exportar_chamados_para_excel(df):
+    """Exporta DataFrame para Excel em bytes."""
+    df_export = df.copy()
+    for col in ["abertura", "fechamento"]:
+        if col in df_export.columns:
+            df_export[col] = pd.to_datetime(df_export[col], errors="coerce")
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='chamados')
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df_export.to_excel(writer, index=False, sheet_name="chamados")
     output.seek(0)
     return output.getvalue()
 
-# Função principal do sistema de chamados
+
+# Interface Streamlit
 def sistema_chamados(usuario_logado):
-    st.title(f"Sistema de Chamados - Usuário: {usuario_logado}")
+    st.title(f"📌 Sistema de Chamados - Usuário: {usuario_logado}")
     st.sidebar.header("Filtros")
 
     # Filtros
@@ -84,47 +75,62 @@ def sistema_chamados(usuario_logado):
     data_inicio = st.sidebar.date_input("Data Início", value=datetime.today())
     data_fim = st.sidebar.date_input("Data Fim", value=datetime.today())
 
-    # Regional
-    regionais_disponiveis = dados[dados["4"].dt.date.between(data_inicio, data_fim)]["8"].str.strip().unique().tolist()
+    # Seleção Regional
+    regionais_disponiveis = []
+    if "4" in dados.columns and "8" in dados.columns:
+        mask = dados["4"].dt.date.between(data_inicio, data_fim)
+        regionais_disponiveis = dados[mask]["8"].str.strip().unique().tolist()
     regional = st.selectbox("Regional", ["Selecione uma Regional"] + regionais_disponiveis)
 
-    # Loja
+    # Seleção Loja
     lojas_disponiveis = []
-    if regional not in ["Selecione uma Regional"]:
-        lojas_disponiveis = dados[(dados["8"].str.strip() == regional) &
-                                  (dados["4"].dt.date.between(data_inicio, data_fim))]["1"].str.strip().unique().tolist()
+    if regional not in ["Selecione uma Regional"] and "1" in dados.columns and "8" in dados.columns:
+        mask = (dados["8"].str.strip() == regional) & (dados["4"].dt.date.between(data_inicio, data_fim))
+        lojas_disponiveis = dados[mask]["1"].str.strip().unique().tolist()
     loja = st.selectbox("Loja", ["Selecione uma Loja"] + lojas_disponiveis)
 
     # Líder
     lider = ""
-    if loja not in ["Selecione uma Loja"]:
-        filtro = dados[(dados["8"].str.strip() == regional) &
-                       (dados["1"].str.strip() == loja) &
-                       (dados["4"].dt.date.between(data_inicio, data_fim))]
+    if loja not in ["Selecione uma Loja"] and {"8", "1", "12", "4"}.issubset(dados.columns):
+        mask = (dados["8"].str.strip() == regional) & (dados["1"].str.strip() == loja) & (dados["4"].dt.date.between(data_inicio, data_fim))
+        filtro = dados[mask]
         if not filtro.empty:
             lider = filtro["12"].iloc[0]
     lider_editado = st.text_input("Líder", value=lider)
 
     # Motivo
-    motivos = ["Selecione um Motivo", "Falha Impressão", "Impressora Queimada",
-               "Router não funciona", "Notebook não liga", "Coletor não conecta", "Outro"]
+    motivos = [
+        "Selecione um Motivo",
+        "Falha Impressão",
+        "Impressora Queimada",
+        "Router não funciona",
+        "Notebook não liga",
+        "Coletor não conecta",
+        "Outro",
+    ]
     motivo = st.selectbox("Motivo do Suporte", motivos)
     outro_motivo = st.text_input("Digite o motivo do suporte:") if motivo == "Outro" else ""
 
-    # Botão cadastrar chamado
+    # Botão Cadastrar Chamado
     if st.button("Cadastrar Chamado"):
         motivo_final = outro_motivo if motivo == "Outro" else motivo
-        if regional in ["Selecione uma Regional"] or loja in ["Selecione uma Loja"] or lider_editado.strip() == "" or motivo_final.strip() == "" or motivo_final == "Selecione um Motivo":
-            st.warning("Todos os campos devem ser preenchidos!")
+        if (
+            regional in ["Selecione uma Regional"]
+            or loja in ["Selecione uma Loja"]
+            or lider_editado.strip() == ""
+            or motivo_final.strip() == ""
+            or motivo_final == "Selecione um Motivo"
+        ):
+            st.warning("⚠️ Todos os campos devem ser preenchidos!")
         else:
-            cadastrar_chamado(regional, loja, lider_editado, motivo_final)
+            db_cadastrar_chamado(regional, loja, lider_editado, motivo_final)
 
     # Listar chamados
-    st.subheader("Chamados")
+    st.subheader("📋 Chamados")
     df_chamados = listar_chamados(filtro_status, data_inicio, data_fim)
 
     if not df_chamados.empty:
-        for index, row in df_chamados.iterrows():
+        for _, row in df_chamados.iterrows():
             col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 2, 2, 2, 2, 1, 1])
             col1.write(row["id"])
             col2.write(row["regional"])
@@ -133,15 +139,23 @@ def sistema_chamados(usuario_logado):
             col5.write(row["motivo"])
             col6.write(row["status"])
 
-            # Botão de finalizar apenas se o chamado estiver aberto
             if row["status"] == "Aberto":
                 if col7.button("Finalizar", key=f"finalizar_{row['id']}"):
-                    finalizar_chamado(row["id"])
-                    st.rerun()  # Atualiza a tabela após finalizar
+                    db_finalizar_chamado(row["id"])
+                    st.rerun()
     else:
-        st.info("Nenhum chamado encontrado.")
+        st.info("ℹ️ Nenhum chamado encontrado.")
+
+    # Exportar chamados
+    if not df_chamados.empty:
+        st.download_button(
+            label="📥 Exportar Chamados para Excel",
+            data=exportar_chamados_para_excel(df_chamados),
+            file_name="chamados_exportados.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
     # Botão sair
-    if st.button("Sair"):
+    if st.button("🚪 Sair"):
         st.session_state.clear()
         st.stop()

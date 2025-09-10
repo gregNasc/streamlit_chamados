@@ -1,7 +1,12 @@
 import streamlit as st
 from chamados import sistema_chamados
-from database import verificar_usuario, inicializar_banco, cadastrar_usuario, zerar_banco
-from dashboard import dashboard_admin, dashboard_usuario  # imports atualizados
+from database import (
+    verificar_usuario,
+    cadastrar_usuario_se_nao_existir,
+    zerar_banco
+)
+from dashboard import dashboard_admin, dashboard_usuario
+
 
 # Configuração da página
 st.set_page_config(
@@ -11,16 +16,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inicializa banco e usuários
-inicializar_banco()
-cadastrar_usuario("admin", "admin123", papel="admin")
-cadastrar_usuario("user", "user", papel="usuario")
+
+# Inicialização de usuários (admin e user)
+if "usuarios_inicializados" not in st.session_state:
+    # Cria admin apenas se não existir
+    cadastrar_usuario_se_nao_existir("admin", "admin123", papel="admin")
+    # Cria usuário padrão apenas se não existir
+    cadastrar_usuario_se_nao_existir("user", "user", papel="usuario")
+    st.session_state["usuarios_inicializados"] = True
 
 
 # Sessão persistente
 if "usuario_logado" not in st.session_state:
     st.session_state["usuario_logado"] = None
     st.session_state["papel"] = None
+
 
 # Função de logout
 def sair():
@@ -31,7 +41,7 @@ def sair():
 
 # Tela de login
 if not st.session_state["usuario_logado"]:
-    st.title("Login Sistema de Chamados")
+    st.title("🔐 Login Sistema de Chamados")
     usuario_input = st.text_input("Usuário")
     senha_input = st.text_input("Senha", type="password")
 
@@ -52,7 +62,7 @@ else:
     papel = st.session_state["papel"]
 
     # Menu lateral
-    st.sidebar.title("Menu")
+    st.sidebar.title(f"Olá, {usuario_logado}")
     if st.sidebar.button("Sair"):
         sair()
 
@@ -63,15 +73,15 @@ else:
     # Navegação entre páginas
     if pagina == "Dashboard":
         if papel == "admin":
-            dashboard_admin()  # Dashboard completo com exportação
+            dashboard_admin()      # Dashboard completo com gráficos e exportação
         else:
-            dashboard_usuario()  # Apenas gráfico de status
+            dashboard_usuario()    # Dashboard simplificado para usuários
 
     elif pagina == "Sistema de Chamados":
         sistema_chamados(usuario_logado)
 
 
-    # Botão sensível apenas para admin
+    # Função sensível apenas para admin
     if papel == "admin":
         st.sidebar.markdown("---")
         if "confirm_zerar" not in st.session_state:
@@ -80,14 +90,12 @@ else:
         if not st.session_state["confirm_zerar"]:
             if st.sidebar.button("Zerar Banco de Dados"):
                 st.session_state["confirm_zerar"] = True
-
         else:
             st.warning("⚠️ Esta ação apagará TODOS os dados do banco de dados!")
             col1, col2 = st.sidebar.columns(2)
             if col1.button("Sim"):
-                zerar_banco()
-                st.success("✅ Banco de dados zerado com sucesso!")
+                zerar_banco(confirmar=True)
                 st.session_state["confirm_zerar"] = False
-                st.rerun()  # Atualiza interface
+                st.rerun()
             if col2.button("Não"):
                 st.session_state["confirm_zerar"] = False

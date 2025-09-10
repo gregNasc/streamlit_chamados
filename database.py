@@ -1,112 +1,89 @@
-import sqlite3
-import pandas as pd
+import os
 from datetime import datetime
 import streamlit as st
-
-DB_PATH = "chamados.db"
-
-# Inicializa banco e tabelas
-def inicializar_banco():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    # Tabela de chamados
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS chamados (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            regional TEXT,
-            loja TEXT,
-            lider TEXT,
-            motivo TEXT,
-            abertura TEXT,
-            fechamento TEXT,
-            duracao TEXT,
-            status TEXT
-        )
-    """)
-
-    # Tabela de usuários
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            usuario TEXT UNIQUE,
-            senha TEXT,
-            papel TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+import pandas as pd
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
 
-# Ler todos os chamados
+# Carregar variáveis de ambiente
+load_dotenv()  # Procura arquivo .env na raiz do projeto
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
+
+
+# Inicializar cliente Supabase
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+# Funções de CRUD
+
 def ler_chamados():
-    inicializar_banco()
-    with sqlite3.connect(DB_PATH) as conn:
-        df = pd.read_sql_query("SELECT * FROM chamados", conn)
+    response = supabase.table("chamados").select("*").execute()
+    df = pd.DataFrame(response.data)
     return df
 
-
-# Cadastrar chamado
 def cadastrar_chamado(regional, loja, lider, motivo):
-    abertura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO chamados (regional, loja, lider, motivo, abertura, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (regional, loja, lider, motivo, abertura, "Aberto"))
-        conn.commit()
+    abertura = datetime.now().isoformat()  # ISO 8601 compatível com Supabase
+    supabase.table("chamados").insert({
+        "regional": regional,
+        "loja": loja,
+        "lider": lider,
+        "motivo": motivo,
+        "abertura": abertura,
+        "status": "Aberto"
+    }).execute()
+    st.success("✅ Chamado cadastrado!")
 
-
-# Finalizar chamado pelo ID
 def finalizar_chamado(chamado_id):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT abertura FROM chamados WHERE id = ?", (chamado_id,))
-        row = cursor.fetchone()
-        if row is None:
-            return False
-        abertura = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
-        fechamento = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        duracao = str(datetime.now() - abertura).split('.')[0]
-        cursor.execute("""
-            UPDATE chamados
-            SET fechamento=?, duracao=?, status=?
-            WHERE id=?
-        """, (fechamento, duracao, "Finalizado", chamado_id))
-        conn.commit()
+    chamado = supabase.table("chamados").select("abertura").eq("id", chamado_id).execute()
+    if not chamado.data:
+        st.error("❌ Chamado não encontrado!")
+        return
+
+    # Converte string ISO 8601 para datetime
+    abertura = datetime.fromisoformat(chamado.data[0]["abertura"])
+    agora = datetime.now()
+    fechamento = agora.isoformat()
+    duracao = str(agora - abertura).split(".")[0]
+
+    supabase.table("chamados").update({
+        "fechamento": fechamento,
+        "duracao": duracao,
+        "status": "Finalizado"
+    }).eq("id", chamado_id).execute()
+    st.success(f"✅ Chamado {chamado_id} finalizado!")
+
+def verificar_usuario(usuario, senha):
+    result = supabase.table("usuarios").select("papel").eq("usuario", usuario).eq("senha", senha).execute()
+    if result.data:
+        return result.data[0]["papel"]
+    return None
+
+def cadastrar_usuario(usuario, senha, papel="usuario"):
+    supabase.table("usuarios").insert({
+        "usuario": usuario,
+        "senha": senha,
+        "papel": papel
+    }).execute()
+
+def cadastrar_usuario_se_nao_existir(usuario, senha, papel="usuario"):
+    resultado = supabase.table("usuarios").select("id").eq("usuario", usuario).execute()
+    if resultado.data:
+        return False  # Usuário já existe
+    supabase.table("usuarios").insert({
+        "usuario": usuario,
+        "senha": senha,
+        "papel": papel
+    }).execute()
     return True
 
-
-# Cadastrar usuário
-def cadastrar_usuario(usuario, senha, papel="user"):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR IGNORE INTO usuarios (usuario, senha, papel)
-            VALUES (?, ?, ?)
-        """, (usuario, senha, papel))
-        conn.commit()
-
-
-# Verificar login
-def verificar_usuario(usuario, senha):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT papel FROM usuarios WHERE usuario=? AND senha=?", (usuario, senha))
-        row = cursor.fetchone()
-    return row[0] if row else None
-
-
-# Zerar banco de dados com proteção
-def zerar_banco():
-    if st.button("Zerar Banco de Dados", key="zerar_db"):
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("DROP TABLE IF EXISTS chamados")
-        cursor.execute("DROP TABLE IF EXISTS usuarios")
-        conn.commit()
-        conn.close()
+def zerar_banco(confirmar=False):
+    if confirmar:
+        supabase.table("chamados").delete().neq("id", 0).execute()
+#       supabase.table("usuarios").delete().neq("id", 0).execute()
         st.success("✅ Banco de dados zerado com sucesso!")
-
