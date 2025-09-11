@@ -108,18 +108,44 @@ def sistema_chamados(usuario_logado):
     lider_editado = st.text_input("Líder", value=lider).upper()
 
     # Motivo
-    motivos = [
+    motivos_fixos = [
         "Selecione um Motivo",
-        "Falha Impressão",
-        "Impressora Queimada",
-        "Router não funciona",
-        "Notebook não liga",
-        "Coletor não conecta",
-        "Outro",
+        "FALHA NA IMPRESSÃO",
+        "IMPRESSORA QUEIMADA",
+        "ROUTER NÃO FUNCIONA",
+        "NOTEBOOK NÃO LIGA",
+        "COLETOR NA CONECTA NA REDE",
     ]
-    motivo = st.selectbox("Motivo do Suporte", motivos)
-    outro_motivo = st.text_input("Digite o motivo do suporte:").upper() if motivo == "Outro" else ""
 
+    # Buscar motivos já cadastrados no Supabase (coluna 'motivo')
+    res = supabase.table("chamados").select("motivo").execute()
+    motivos_db = [m["motivo"].upper() for m in res.data if m.get("motivo")]
+
+    # Remover duplicados que já estão nos fixos
+    novos_motivos = sorted([m for m in motivos_db if m not in motivos_fixos])
+
+    # Junta fixos + do banco, sem duplicados
+    motivos = list(dict.fromkeys(motivos_fixos + motivos_db))
+
+    # Adiciona "OUTRO" sempre no final (maiúsculo)
+    if "OUTRO" not in motivos:
+        motivos.append("OUTRO")
+
+    # Selectbox para o usuário
+    motivo = st.selectbox("Motivo do Suporte", motivos)
+
+    # Se o usuário escolher "OUTRO", permitir digitar
+    outro_motivo = ""
+    if motivo == "OUTRO":
+        outro_motivo = st.text_input("Digite o motivo do suporte:").upper().strip()
+        if outro_motivo:
+            motivo = outro_motivo  # substitui "OUTRO" pelo valor digitado
+
+            # Salvar no Supabase apenas se ainda não existir
+            if motivo not in motivos_db:
+                supabase.table("chamados").insert({"motivo": motivo}).execute()
+                motivos_db.append(motivo)  # atualiza a lista local
+                
     # Botão Cadastrar Chamado
     if st.button("Cadastrar Chamado"):
         motivo_final = outro_motivo if motivo == "Outro" else motivo
