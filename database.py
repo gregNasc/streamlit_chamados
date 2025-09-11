@@ -6,27 +6,26 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Carregar variáveis de ambiente
-load_dotenv()
+load_dotenv()  # Procura arquivo .env na raiz do projeto
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Variáveis SUPABASE_URL ou SUPABASE_KEY não encontradas.")
-    st.stop()
+    raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
 
 # Inicializar cliente Supabase
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ---------------------------
-# Funções CRUD
-# ---------------------------
+# Funções de CRUD
+
 def ler_chamados():
     response = supabase.table("chamados").select("*").execute()
     df = pd.DataFrame(response.data)
     return df
 
 def cadastrar_chamado(regional, loja, lider, motivo):
+    # Garantir datetime naive (sem timezone)
     abertura = datetime.now().replace(tzinfo=None).isoformat()
     supabase.table("chamados").insert({
         "regional": regional,
@@ -38,28 +37,27 @@ def cadastrar_chamado(regional, loja, lider, motivo):
     }).execute()
     st.success("✅ Chamado cadastrado!")
 
-def finalizar_chamado(chamado_id, finalizado_por=None):
+def finalizar_chamado(chamado_id):
     chamado = supabase.table("chamados").select("abertura").eq("id", chamado_id).execute()
     if not chamado.data:
         st.error("❌ Chamado não encontrado!")
         return
 
+    # Converte string ISO 8601 para datetime
     abertura = datetime.fromisoformat(chamado.data[0]["abertura"])
+    # Remover timezone caso exista
     if abertura.tzinfo is not None:
         abertura = abertura.replace(tzinfo=None)
 
-    agora = datetime.now()
+    agora = datetime.now()  # datetime naive
+    fechamento = agora.isoformat()
     duracao = str(agora - abertura).split(".")[0]
 
-    update_data = {
-        "fechamento": agora.isoformat(),
+    supabase.table("chamados").update({
+        "fechamento": fechamento,
         "duracao": duracao,
         "status": "Finalizado"
-    }
-    if finalizado_por:
-        update_data["finalizado_por"] = finalizado_por
-
-    supabase.table("chamados").update(update_data).eq("id", chamado_id).execute()
+    }).eq("id", chamado_id).execute()
     st.success(f"✅ Chamado {chamado_id} finalizado!")
 
 def verificar_usuario(usuario, senha):
@@ -74,3 +72,20 @@ def cadastrar_usuario(usuario, senha, papel="usuario"):
         "senha": senha,
         "papel": papel
     }).execute()
+
+def cadastrar_usuario_se_nao_existir(usuario, senha, papel="usuario"):
+    resultado = supabase.table("usuarios").select("id").eq("usuario", usuario).execute()
+    if resultado.data:
+        return False  # Usuário já existe
+    supabase.table("usuarios").insert({
+        "usuario": usuario,
+        "senha": senha,
+        "papel": papel
+    }).execute()
+    return True
+
+def zerar_banco(confirmar=False):
+    if confirmar:
+        supabase.table("chamados").delete().neq("id", 0).execute()
+#       supabase.table("usuarios").delete().neq("id", 0).execute()
+        st.success("✅ Banco de dados zerado com sucesso!")
