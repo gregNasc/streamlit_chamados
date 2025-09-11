@@ -18,12 +18,6 @@ st.set_page_config(
 
 
 # Inicialização de usuários (admin e user)
-if "usuarios_inicializados" not in st.session_state:
-    # Cria admin apenas se não existir
-    cadastrar_usuario_se_nao_existir("admin", "admin123", papel="admin")
-    # Cria usuário padrão apenas se não existir
-    cadastrar_usuario_se_nao_existir("user", "user", papel="usuario")
-    st.session_state["usuarios_inicializados"] = True
 
 
 # Sessão persistente
