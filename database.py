@@ -15,7 +15,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
 
 # Inicializar cliente Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Funções de CRUD
 
