@@ -11,9 +11,13 @@ load_dotenv()  # Procura arquivo .env na raiz do projeto
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+st.write("SUPABASE_KEY OK" if SUPABASE_KEY else "SUPABASE_KEY missing")
+st.write("SUPABASE_URL OK" if SUPABASE_URL else "SUPABASE_URL missing")
+
+
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
-
+    
 # Inicializar cliente Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
