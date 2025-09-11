@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 # Carregar variáveis de ambiente
 load_dotenv()  # Procura arquivo .env na raiz do projeto
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_URL = os.getenv("https://rkhosptbqjfrqrlhbizf.supabase.co")
+SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJraG9zcHRicWpmcnFybGhiaXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNDc2NDksImV4cCI6MjA3MjkyMzY0OX0.zNSRAdzgD-s7vKH4OBGdc-fJTMr6gm9BKpTyJMMTQrY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
