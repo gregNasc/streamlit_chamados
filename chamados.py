@@ -2,26 +2,32 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
-from database import cadastrar_chamado as db_cadastrar_chamado, finalizar_chamado as db_finalizar_chamado, ler_chamados
+from database import (
+    cadastrar_chamado as db_cadastrar_chamado,
+    finalizar_chamado as db_finalizar_chamado,
+    ler_chamados
+)
 
 EXCEL_PATH = "chamado.xlsx"
 
-
+# ---------------------------
 # Carregar dados do Excel
+# ---------------------------
 @st.cache_data
 def carregar_dados_excel():
     try:
         dados_excel = pd.read_excel(EXCEL_PATH, header=1)
         dados_excel.columns = [str(c).strip().upper() for c in dados_excel.columns]
 
-        # Converter colunas específicas
         for col in ["8", "1", "12"]:
             if col in dados_excel.columns:
                 dados_excel[col] = dados_excel[col].astype(str)
+
         if "4" in dados_excel.columns:
             dados_excel["4"] = pd.to_datetime(dados_excel["4"], errors="coerce")
 
         return dados_excel
+
     except FileNotFoundError:
         st.warning(f"⚠️ Arquivo {EXCEL_PATH} não encontrado!")
         return pd.DataFrame()
@@ -29,35 +35,34 @@ def carregar_dados_excel():
         st.error(f"Erro ao carregar Excel: {e}")
         return pd.DataFrame()
 
+
 dados = carregar_dados_excel()
 
-
+# ---------------------------
 # Funções principais
+# ---------------------------
 def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
-    """Lista chamados filtrando por status e datas."""
     df = ler_chamados()
     if df.empty:
         return df
 
-    # Filtrar status
     if filtro == "Chamados Abertos":
         df = df[df["status"] == "Aberto"]
     elif filtro == "Chamados Finalizados":
         df = df[df["status"] == "Finalizado"]
 
-    # Filtrar por datas
     if inicio and fim:
         df["abertura"] = pd.to_datetime(df["abertura"], errors="coerce")
         df = df[df["abertura"].dt.date.between(inicio, fim)]
 
     return df
 
+
 def exportar_chamados_para_excel(df):
     df_export = df.copy()
     for col in ["abertura", "fechamento"]:
         if col in df_export.columns:
-            df_export[col] = pd.to_datetime(df_export[col], errors="coerce")
-            df_export[col] = df_export[col].dt.tz_localize(None)  # remove timezone
+            df_export[col] = pd.to_datetime(df_export[col], errors="coerce").dt.tz_localize(None)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -65,9 +70,9 @@ def exportar_chamados_para_excel(df):
     output.seek(0)
     return output.getvalue()
 
-
-
+# ---------------------------
 # Interface Streamlit
+# ---------------------------
 def sistema_chamados(usuario_logado):
     st.title(f"📌 Sistema de Chamados - Usuário: {usuario_logado}")
     st.sidebar.header("Filtros")
