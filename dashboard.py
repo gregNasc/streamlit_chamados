@@ -75,7 +75,7 @@ def plotar_tempo_medio(df, titulo="Tempo Médio por Motivo"):
 
     # Criar gráfico menor
     fig, ax = plt.subplots(figsize=(20, 4))
-    barras = ax.barh(media_por_motivo.index, media_por_motivo.values, color='skyblue')
+    barras = ax.barh(media_por_motivo.index, media_por_motivo.values, color='black')
 
     # Adiciona labels no final de cada barra em horas e minutos
     labels = []
