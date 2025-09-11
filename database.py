@@ -5,18 +5,15 @@ import pandas as pd
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# Carregar variáveis de ambiente localmente (não necessário no Streamlit Cloud)
+# Carregar variáveis de ambiente
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# Debug seguro
-st.write("SUPABASE_URL OK" if SUPABASE_URL else "SUPABASE_URL missing")
-st.write("SUPABASE_KEY OK" if SUPABASE_KEY else "SUPABASE_KEY missing")
-
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
+    st.error("Variáveis SUPABASE_URL ou SUPABASE_KEY não encontradas.")
+    st.stop()
 
 # Inicializar cliente Supabase
 supabase: Client = create_client(
@@ -26,9 +23,8 @@ supabase: Client = create_client(
 )
 
 # ---------------------------
-# Funções de CRUD
+# Funções CRUD
 # ---------------------------
-
 def ler_chamados():
     response = supabase.table("chamados").select("*").execute()
     df = pd.DataFrame(response.data)
@@ -57,11 +53,10 @@ def finalizar_chamado(chamado_id, finalizado_por=None):
         abertura = abertura.replace(tzinfo=None)
 
     agora = datetime.now()
-    fechamento = agora.isoformat()
     duracao = str(agora - abertura).split(".")[0]
 
     update_data = {
-        "fechamento": fechamento,
+        "fechamento": agora.isoformat(),
         "duracao": duracao,
         "status": "Finalizado"
     }
@@ -83,36 +78,3 @@ def cadastrar_usuario(usuario, senha, papel="usuario"):
         "senha": senha,
         "papel": papel
     }).execute()
-
-def cadastrar_usuario_se_nao_existir(usuario, senha, papel="usuario"):
-    resultado = supabase.table("usuarios").select("id").eq("usuario", usuario).execute()
-    if resultado.data:
-        return False
-    supabase.table("usuarios").insert({
-        "usuario": usuario,
-        "senha": senha,
-        "papel": papel
-    }).execute()
-    return True
-
-def zerar_banco(confirmar=False):
-    if confirmar:
-        supabase.table("chamados").delete().neq("id", 0).execute()
-        # supabase.table("usuarios").delete().neq("id", 0).execute()
-        st.success("✅ Banco de dados zerado com sucesso!")
-
-# ---------------------------
-# Exportar Excel seguro
-# ---------------------------
-
-def exportar_chamados_para_excel(df):
-    df_export = df.copy()
-    for col in ["abertura", "fechamento"]:
-        if col in df_export.columns:
-            df_export[col] = pd.to_datetime(df_export[col], errors="coerce").dt.tz_localize(None)
-    from io import BytesIO
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df_export.to_excel(writer, index=False, sheet_name="chamados")
-    output.seek(0)
-    return output.getvalue()
