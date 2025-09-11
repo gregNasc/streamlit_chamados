@@ -24,20 +24,30 @@ def plotar_pizza(df, coluna, titulo=None, figsize=(4,4)):
     fig.tight_layout()
     return fig
 
-def plotar_barra(df, coluna, titulo=None, figsize=(5,4)):
+
+
+    # Mostra os 10 motivos mais frequentes, ordenados do menor para o maior
+    fig_motivos = plotar_barra(df, "motivo", "Principais Motivos", top_n=10, ordenar_por_valor=True)
+    st.pyplot(fig_motivos)
+def plotar_barra(df, coluna, titulo=None, figsize=(8,5), top_n=10, ordenar_por_valor=True):
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Conta valores
-    df_count = df[coluna].value_counts()
+    # Conta os valores e pega os top N (os mais frequentes)
+    df_count = df[coluna].value_counts().head(top_n)
 
-    # Ordena os índices (categorias) e garante que os valores sejam numéricos
-    df_count = df_count.sort_index()
+    # Ordena os índices para o gráfico
+    if ordenar_por_valor:
+        # Ordem crescente dos valores para exibir barras do menor para o maior
+        df_count = df_count.sort_values()
+    else:
+        # Ordem alfabética das categorias
+        df_count = df_count.sort_index()
+
+    # Define cores condicional: verde <=5, vermelho >5
     valores = pd.to_numeric(df_count.values)
-
-    # Define cores com base nos valores corretos
     cores = ['green' if v <= 5 else 'red' for v in valores]
 
-    # Plota gráfico de barras
+    # Plota gráfico
     df_count.plot(kind="bar", ax=ax, color=cores)
 
     ax.set_ylabel("Qtd")
@@ -49,6 +59,7 @@ def plotar_barra(df, coluna, titulo=None, figsize=(5,4)):
 
     fig.tight_layout()
     return fig
+
 
 
 # Filtros genéricos
@@ -85,16 +96,16 @@ def dashboard_admin():
         st.pyplot(plotar_pizza(df_filtrado, "status", figsize=(4,4)))
 
     with col2:
-        st.subheader("📊 Chamados por Regional")
-        st.pyplot(plotar_barra(df_filtrado, "regional", titulo="Chamados por Regional", figsize=(5,4)))
+        st.subheader("👔 Principais Líderes")
+        st.pyplot(plotar_barra(df_filtrado, "lider", titulo="Principais Líderes", figsize=(8,6)))
 
     with col3:
         st.subheader("⚙️ Principais Motivos")
-        st.pyplot(plotar_barra(df_filtrado, "motivo", titulo="Principais Motivos", figsize=(5,4)))
+        st.pyplot(plotar_barra(df_filtrado, "motivo", titulo="Principais Motivos", figsize=(8,6)))
 
     with col4:
-        st.subheader("👔 Principais Líderes")
-        st.pyplot(plotar_barra(df_filtrado, "lider", titulo="Principais Líderes", figsize=(5,4)))
+        st.subheader("📊 Chamados por Regional")
+        st.pyplot(plotar_barra(df_filtrado, "regional", titulo="Chamados por Regional", figsize=(8,6)))
 
     # Exportar dados filtrados
     if not df_filtrado.empty:
