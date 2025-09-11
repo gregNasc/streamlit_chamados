@@ -105,7 +105,7 @@ def sistema_chamados(usuario_logado):
         filtro = dados[mask]
         if not filtro.empty:
             lider = filtro["12"].iloc[0]
-    lider_editado = st.text_input("Líder", value=lider)
+    lider_editado = st.text_input("Líder", value=lider).upper()
 
     # Motivo
     motivos = [
@@ -118,7 +118,7 @@ def sistema_chamados(usuario_logado):
         "Outro",
     ]
     motivo = st.selectbox("Motivo do Suporte", motivos)
-    outro_motivo = st.text_input("Digite o motivo do suporte:") if motivo == "Outro" else ""
+    outro_motivo = st.text_input("Digite o motivo do suporte:").upper() if motivo == "Outro" else ""
 
     # Botão Cadastrar Chamado
     if st.button("Cadastrar Chamado"):
