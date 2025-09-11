@@ -5,20 +5,17 @@ import pandas as pd
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-
 # Carregar variáveis de ambiente
 load_dotenv()  # Procura arquivo .env na raiz do projeto
 
-SUPABASE_URL = os.getenv("https://rkhosptbqjfrqrlhbizf.supabase.co")
-SUPABASE_KEY = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJraG9zcHRicWpmcnFybGhiaXpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNDc2NDksImV4cCI6MjA3MjkyMzY0OX0.zNSRAdzgD-s7vKH4OBGdc-fJTMr6gm9BKpTyJMMTQrY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
 
-
 # Inicializar cliente Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 
 # Funções de CRUD
 
@@ -28,7 +25,8 @@ def ler_chamados():
     return df
 
 def cadastrar_chamado(regional, loja, lider, motivo):
-    abertura = datetime.now().isoformat()  # ISO 8601 compatível com Supabase
+    # Garantir datetime naive (sem timezone)
+    abertura = datetime.now().replace(tzinfo=None).isoformat()
     supabase.table("chamados").insert({
         "regional": regional,
         "loja": loja,
@@ -47,7 +45,11 @@ def finalizar_chamado(chamado_id):
 
     # Converte string ISO 8601 para datetime
     abertura = datetime.fromisoformat(chamado.data[0]["abertura"])
-    agora = datetime.now()
+    # Remover timezone caso exista
+    if abertura.tzinfo is not None:
+        abertura = abertura.replace(tzinfo=None)
+
+    agora = datetime.now()  # datetime naive
     fechamento = agora.isoformat()
     duracao = str(agora - abertura).split(".")[0]
 
