@@ -53,16 +53,18 @@ def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
     return df
 
 def exportar_chamados_para_excel(df):
-    """Exporta DataFrame para Excel em bytes."""
     df_export = df.copy()
     for col in ["abertura", "fechamento"]:
         if col in df_export.columns:
             df_export[col] = pd.to_datetime(df_export[col], errors="coerce")
+            df_export[col] = df_export[col].dt.tz_localize(None)  # remove timezone
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_export.to_excel(writer, index=False, sheet_name="chamados")
     output.seek(0)
     return output.getvalue()
+
 
 
 # Interface Streamlit
