@@ -5,3 +5,4 @@ bcrypt==4.1.2
 matplotlib==3.9.2
 xlsxwriter==3.2.0
 openpyxl==3.1.5
+python-dotenv>=1.0.0
