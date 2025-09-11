@@ -1,4 +1,12 @@
 import streamlit as st
+from chamados import sistema_chamados
+from database import (
+    verificar_usuario,
+    cadastrar_usuario_se_nao_existir,
+    zerar_banco
+)
+from dashboard import dashboard_admin, dashboard_usuario
+
 
 # ---------------------------
 # Configuração da página
@@ -9,13 +17,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-from chamados import sistema_chamados
-from database import (
-    verificar_usuario,
-    cadastrar_usuario_se_nao_existir,
-    zerar_banco
-)
-from dashboard import dashboard_admin, dashboard_usuario
 
 # ---------------------------
 # Configuração da página
