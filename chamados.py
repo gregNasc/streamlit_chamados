@@ -36,6 +36,7 @@ dados = carregar_dados_excel()
 def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
     """Lista chamados filtrando por status e datas."""
     df = ler_chamados()
+
     if df.empty:
         return df
 
@@ -54,18 +55,24 @@ def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
 
 def exportar_chamados_para_excel(df):
     df_export = df.copy()
+
+    # Garantir que colunas de data estão em datetime e sem timezone
     for col in ["abertura", "fechamento"]:
         if col in df_export.columns:
             df_export[col] = pd.to_datetime(df_export[col], errors="coerce")
             df_export[col] = df_export[col].dt.tz_localize(None)  # remove timezone
 
+    # Opcional: garantir que "finalizado_por" aparece no Excel
+    colunas_esperadas = ["id", "titulo", "status", "abertura", "fechamento", "finalizado_por"]
+    colunas_existentes = [c for c in colunas_esperadas if c in df_export.columns]
+    df_export = df_export[colunas_existentes]
+
+    # Exportar para Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_export.to_excel(writer, index=False, sheet_name="chamados")
     output.seek(0)
     return output.getvalue()
-
-
 
 # Interface Streamlit
 def sistema_chamados(usuario_logado):
