@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 from io import BytesIO
 from database import cadastrar_chamado as db_cadastrar_chamado, finalizar_chamado as db_finalizar_chamado, ler_chamados
+from database import supabase
 
 EXCEL_PATH = "chamado.xlsx"
 
