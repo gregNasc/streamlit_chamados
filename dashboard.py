@@ -26,14 +26,27 @@ def plotar_pizza(df, coluna, titulo=None, figsize=(4,4)):
 
 def plotar_barra(df, coluna, titulo=None, figsize=(5,4)):
     fig, ax = plt.subplots(figsize=figsize)
+
+    # Conta valores
     df_count = df[coluna].value_counts()
-    cores = ['red' if valor >= 5 else 'green' for valor in df_count.values]
-    df_count.sort_index().plot(kind="bar", ax=ax, color=cores)
+
+    # Ordena os índices (categorias) e garante que os valores sejam numéricos
+    df_count = df_count.sort_index()
+    valores = pd.to_numeric(df_count.values)
+
+    # Define cores com base nos valores corretos
+    cores = ['green' if v <= 5 else 'red' for v in valores]
+
+    # Plota gráfico de barras
+    df_count.plot(kind="bar", ax=ax, color=cores)
+
     ax.set_ylabel("Qtd")
     ax.set_xlabel("")
     ax.bar_label(ax.containers[0])
+
     if titulo:
         ax.set_title(titulo)
+
     fig.tight_layout()
     return fig
 
