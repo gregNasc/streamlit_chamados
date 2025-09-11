@@ -1,4 +1,11 @@
 import streamlit as st
+st.set_page_config(
+    page_title="Sistema de Chamados",
+    page_icon="📋",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 from chamados import sistema_chamados
 from database import (
     verificar_usuario,
@@ -9,12 +16,7 @@ from dashboard import dashboard_admin, dashboard_usuario
 
 
 # Configuração da página
-st.set_page_config(
-    page_title="Sistema de Chamados",
-    page_icon="📋",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+
 
 
 # Inicialização de usuários (admin e user)
