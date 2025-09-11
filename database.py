@@ -15,7 +15,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
 
 # Inicializar cliente Supabase
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Funções de CRUD
 
@@ -34,7 +34,7 @@ def cadastrar_chamado(regional, loja, lider, motivo):
         "motivo": motivo,
         "abertura": abertura,
         "status": "Aberto"
-    }).execute()
+        }).execute()
     st.success("✅ Chamado cadastrado!")
 
 def finalizar_chamado(chamado_id):
