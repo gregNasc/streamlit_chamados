@@ -19,8 +19,11 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Variáveis de ambiente SUPABASE_URL e SUPABASE_KEY não encontradas.")
     
 # Inicializar cliente Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
+supabase: Client = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    options={"auto_refresh_token": False, "persist_session": False}  # evita problemas no Streamlit Cloud
+)
 # Funções de CRUD
 
 def ler_chamados():
