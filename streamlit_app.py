@@ -7,8 +7,9 @@ from database import (
 )
 from dashboard import dashboard_admin, dashboard_usuario
 
-
+# ---------------------------
 # Configuração da página
+# ---------------------------
 st.set_page_config(
     page_title="Sistema de Chamados",
     page_icon="📋",
@@ -16,24 +17,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-# Inicialização de usuários (admin e user)
-
-
+# ---------------------------
 # Sessão persistente
+# ---------------------------
 if "usuario_logado" not in st.session_state:
     st.session_state["usuario_logado"] = None
     st.session_state["papel"] = None
 
-
+# ---------------------------
 # Função de logout
+# ---------------------------
 def sair():
     st.session_state["usuario_logado"] = None
     st.session_state["papel"] = None
     st.rerun()
 
-
+# ---------------------------
 # Tela de login
+# ---------------------------
 if not st.session_state["usuario_logado"]:
     st.title("🔐 Login Sistema de Chamados")
     usuario_input = st.text_input("Usuário")
@@ -49,13 +50,16 @@ if not st.session_state["usuario_logado"]:
         else:
             st.error("Usuário ou senha incorretos")
 
-
+# ---------------------------
 # Tela principal
+# ---------------------------
 else:
     usuario_logado = st.session_state["usuario_logado"]
     papel = st.session_state["papel"]
 
+    # ---------------------------
     # Menu lateral
+    # ---------------------------
     st.sidebar.title(f"Olá, {usuario_logado}")
     if st.sidebar.button("Sair"):
         sair()
@@ -63,8 +67,9 @@ else:
     menu_opcoes = ["Dashboard", "Sistema de Chamados"]
     pagina = st.sidebar.radio("Ir para:", menu_opcoes)
 
-
+    # ---------------------------
     # Navegação entre páginas
+    # ---------------------------
     if pagina == "Dashboard":
         if papel == "admin":
             dashboard_admin()      # Dashboard completo com gráficos e exportação
@@ -74,8 +79,9 @@ else:
     elif pagina == "Sistema de Chamados":
         sistema_chamados(usuario_logado)
 
-
-    # Função sensível apenas para admin
+    # ---------------------------
+    # Funções administrativas
+    # ---------------------------
     if papel == "admin":
         st.sidebar.markdown("---")
         if "confirm_zerar" not in st.session_state:
