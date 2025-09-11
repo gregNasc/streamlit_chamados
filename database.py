@@ -16,11 +16,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     st.stop()
 
 # Inicializar cliente Supabase
-supabase: Client = create_client(
-    SUPABASE_URL,
-    SUPABASE_KEY,
-    options={"auto_refresh_token": False, "persist_session": False}
-)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ---------------------------
 # Funções CRUD
