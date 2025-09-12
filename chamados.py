@@ -54,6 +54,16 @@ def listar_chamados(filtro="Chamados Abertos", inicio=None, fim=None):
 
     return df
 
+#Função de caixa em finalizar chamados
+def finalizar_chamado(chamado_id, observacao=None):
+    """Finaliza um chamado, atualizando status, fechamento e observacao."""
+    agora = datetime.now().isoformat()
+    supabase.table("chamados").update({
+        "status": "Finalizado",   # Deve bater com filtro
+        "fechamento": agora,
+        "observacao": observacao
+    }).eq("id", chamado_id).execute()
+
 def exportar_chamados_para_excel(df):
     df_export = df.copy()
 
