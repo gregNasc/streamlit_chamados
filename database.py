@@ -37,11 +37,22 @@ def cadastrar_chamado(regional, loja, lider, motivo):
         }).execute()
     st.success("✅ Chamado cadastrado!")
 
-def finalizar_chamado(chamado_id):
+def finalizar_chamado(chamado_id, observacao=None):
+    # Verifica se o chamado existe
     chamado = supabase.table("chamados").select("abertura").eq("id", chamado_id).execute()
     if not chamado.data:
         st.error("❌ Chamado não encontrado!")
         return
+
+    # Atualiza status, fechamento e observação
+    agora = datetime.now().isoformat()
+    supabase.table("chamados").update({
+        "status": "Finalizado",
+        "fechamento": agora,
+        "observacao": observacao
+    }).eq("id", chamado_id).execute()
+
+    st.success(f"✅ Chamado {chamado_id} finalizado!")
 
     # Converte string ISO 8601 para datetime
     abertura = datetime.fromisoformat(chamado.data[0]["abertura"])
