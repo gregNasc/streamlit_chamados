@@ -174,11 +174,53 @@ def sistema_chamados(usuario_logado):
             col4.write(row["lider"])
             col5.write(row["motivo"])
             col6.write(row["status"])
-
             if row["status"] == "Aberto":
-                if col7.button("Finalizar", key=f"finalizar_{row['id']}"):
-                    db_finalizar_chamado(row["id"])
-                    st.rerun()
+                # Inicializa estados no session_state
+                key_finalizar = f"finalizar_{row['id']}"
+                key_obs = f"adicionar_obs_{row['id']}"
+                key_confirm = f"confirm_{row['id']}"
+
+                if key_finalizar not in st.session_state:
+                    st.session_state[key_finalizar] = False
+                if key_obs not in st.session_state:
+                    st.session_state[key_obs] = "Não"  # default para "Não"
+
+                # Botão Finalizar inicial
+                if col7.button("Finalizar", key=f"btn_{row['id']}"):
+                    st.session_state[key_finalizar] = True
+
+                # Mostrar a pergunta de observação apenas se o usuário clicou em Finalizar
+                if st.session_state[key_finalizar]:
+                    # Escolha Sim/Não
+                    adicionar_obs = st.radio(
+                        "Deseja acrescentar uma observação?",
+                        options=["Sim", "Não"],
+                        key=f"radio_{row['id']}"
+                    )
+                    st.session_state[key_obs] = adicionar_obs
+
+                    # Caixa de texto só se escolher Sim
+                    observacao = None
+                    if adicionar_obs == "Sim":
+                        observacao = st.text_area(
+                            "Digite sua observação:",
+                            key=f"text_{row['id']}"
+                        )
+
+                    # Botão de confirmação sempre disponível
+                    if st.button("Confirmar Finalização", key=key_confirm):
+                        # Finaliza o chamado mesmo que observacao seja None
+                        db_finalizar_chamado(row["id"], observacao)
+
+                        # Atualiza localmente para desaparecer da lista
+                        df_chamados.loc[df_chamados["id"] == row["id"], "status"] = "Finalizado"
+
+                        # Limpa estados
+                        st.session_state[key_finalizar] = False
+                        st.session_state[key_obs] = "Não"
+
+                        st.success(f"✅ Chamado {row['id']} finalizado!")
+                        st.rerun()
     else:
         st.info("ℹ️ Nenhum chamado encontrado.")
 
