@@ -74,7 +74,7 @@ def exportar_chamados_para_excel(df):
             df_export[col] = df_export[col].dt.tz_localize(None)  # remove timezone
 
     # Opcional: garantir que "finalizado_por" aparece no Excel
-    colunas_esperadas = ["id", "regional", "loja", "lider", "motivo", "abertura", "fechamento", "duracao", "status"]
+    colunas_esperadas = ["id", "regional", "loja", "lider", "motivo", "abertura", "fechamento", "duracao", "status", "observacao"]
     colunas_existentes = [c for c in colunas_esperadas if c in df_export.columns]
     df_export = df_export[colunas_existentes]
 
